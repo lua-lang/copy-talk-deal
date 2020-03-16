@@ -1,0 +1,50 @@
+language: java
+jdk:
+  - openjdk8
+
+branches:
+  only:
+    - master
+
+cache:
+  directories:
+    - "$HOME/.m2/repository"
+    - "$HOME/.gradle"
+
+script: "./gradlew clean build"
+
+before_deploy:
+  - mkdir -p before-deploy
+  - cp scripts/*.sh before-deploy/
+  - cp appspec.yml before-deploy/
+  - cp build/libs/*.jar before-deploy/
+  - cd before-deploy && zip -r before-deploy *
+  - cd ../ && mkdir -p deploy
+  - mv before-deploy/before-deploy.zip deploy/copy-talk-deal-project.zip
+
+deploy:
+  - provider: s3
+    access_key_id: $AWS_ACCESS_KEY
+    secret_access_key: $AWS_SECRET_KEY
+    bucket: copy-cat-talk-deal-build
+    region: ap-northeast-2
+    skip_cleanup: true
+    acl: private
+    local_dir: deploy
+    wait-until-deployed: true
+
+  - provider: codedeploy
+    access_key_id: $AWS_ACCESS_KEY
+    secret_access_key: $AWS_SECRET_KEY
+    bucket: copy-cat-talk-deal-build
+    key: copy-talk-deal-project.zip
+    bundle_type: zip
+    application: copy-talk-deal
+    deployment_group: copy-talk-deal-group
+    region: ap-northeast-2
+    wait-until-deployed: true
+
+#Slack Alarm
+notifications:
+  slack:
+    secure: INq+35sZ9fFuWWhEXwy5WnKoJByDEl2RWXaAP2dqtgU3KhyxRiixI4q9mr9rOROEKCDFX8wfxsWdT6vmVCUgSdZXq4Rnq6TOuTcmQYSmGFG85p7z0KSBGbrVbPsO7CXnKJrFzpE7J9TIkjUxHFCLshgFSSmCbYUisO0S23Bs5CkKApptO6oBi0ibwpp2TpWCBEeNqsTTdBIERKUCJR5O/KvywPIGuWQ6CFskJe5Z1dBzUFAbHED1Rx2AqaNz8VKle0KIHrR5mGgoHM6Qv8IAyED6VsW5NVmHtSIMVXRQdDFY+UV83UhidwyKfvB2AnPc5fd7Qpg2Ui6GZowTvC2+wVk9LG+NEOwNkE4Y+SRtzC8atWCoZdFFyuUIOFtUMIEnjvLXrpZbd+fV8Ved6Vk240ofmY3dAizdbXLw4Rkz/66XIrztA2AcC94OYW0we2qGkHQ6FKp91xLHh+QnEVKy6gH/zfDzYvtup17eXa4mQ3QjyHMfvuCnwh725bO3qwW96mZB4wHt9Bv1+GI1Q407oJI6yapZzeJIbHbcHKYOVnKTx7GuvQaYx6+dP2PSC7ST4hwUl3BZ9KXj81kQwV9TZDhB1kr8GBazbz4/BwFC5vag7PPq8tYCZ5suid3uyE3pZkJqlNoD/tUOp47QBd8g+3hIVgtz8l0TqaxY9PQ+4qE=
